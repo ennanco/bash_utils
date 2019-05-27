@@ -1,0 +1,9 @@
+#! /bin/bash
+# This script has as objective to display the webcam on the desktop on an small window 
+# at the bottom-right corner. It works together with the screencasting to produce educative
+# videos.
+# it would also closes the webcam, if it is call a second time. Threfore is quite convinient to 
+# associate a shortcut on the keyboard.
+
+
+pkill -f "/dev/video" || mpv --geometry=-0-0 --autofit=20% /dev/video0
