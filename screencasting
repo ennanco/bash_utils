@@ -1,0 +1,40 @@
+#! /bin/bash
+# This sctipt has as main objective to record the screen and produce a video with audio from microphone
+
+screen_size=$(xdpyinfo | grep dimensions | awk '{print $2}')
+video_source="-f x11grab -s $screen_size -i :0.0"
+video_encoder="-c:v libx264 -r 30"
+audio_source="-f alsa -ac 2 -i default"
+audio_encoder="-c:a flac"
+output_name="output.mkv"
+
+info(){
+    printf "Usage: $0 [-p] [-w] [-o FILE] [-s] [-h]\\n";
+    printf "\\t-p\\tUse pulse audio\\n"
+    printf "\\t-w\\tRecord webcam only\\n"
+    printf "\\t-o\\tName and extension of the output FILE\\n"
+    printf "\\t-s\\tStop recording\\n"
+    printf "\\t-h\\tDisplay this help\\n"
+}
+
+while getopts "pwo:sh" o; do
+    case "${o}" in
+        p)
+            audio_source="-f pulse -ac 2 -i default"
+            ;;
+        w)
+           video_source="-i /dev/video0"
+            ;;
+        o)
+            output_name=$OPTARG
+            ;;
+        s)
+            pkill -f "ffmpeg"&&exit
+            ;;
+        *)
+            info && exit
+            ;;
+    esac
+done
+
+ffmpeg -y -nostdin $video_source $audio_source $video_encoder $audio_encoder $output_name >/dev/null 2>&1 &
