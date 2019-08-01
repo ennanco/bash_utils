@@ -1,13 +1,12 @@
 #! /bin/bash
-# This script has as main objective to record the screen and produce a video with audio from microphone
+# This sctipt has as main objective to record the screen and produce a video with audio from microphone
 
-#default/preferred options
 screen_size=$(xdpyinfo | grep dimensions | awk '{print $2}')
 video_source="-f x11grab -s $screen_size -i :0.0"
 video_encoder="-c:v libx264 -r 30"
 audio_source="-f alsa -ac 2 -i default"
-audio_encoder="-c:a flac"
-output_name="output.mkv"
+audio_encoder="-c:a aac -b:a 128k"
+output_name="$HOME/output_$(date +%Y%m%d%H%M%S).mkv"
 
 info(){
     printf "Usage: $0 [-p] [-w] [-o FILE] [-s] [-h]\\n";
@@ -38,4 +37,4 @@ while getopts "pwo:sh" o; do
     esac
 done
 
-ffmpeg -y -nostdin $video_source $audio_source $video_encoder $audio_encoder $output_name >/dev/null 2>&1 &
+ffmpeg -y -nostdin $video_source $audio_source $video_encoder $audio_encoder $output_name >/dev/null 2>&1 & 

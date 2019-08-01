@@ -1,0 +1,51 @@
+#!/bin/bash
+
+root_folder=${PWD}
+main_file=""
+session_name="default"
+
+
+info(){
+    printf "Usage: $0 [-n NAME] [-t] [-d FOLDER] [-f FILE] [-h]\\n";
+    printf "\\t-n\\tNAME for the session to open\\n"
+    printf "\\t-t\\tAdd and extra test window\\n"
+    printf "\\t-d\\tSet the FOLDER where the proyect is\\n"
+    printf "\\t-f\\tOpen the FILE to edit insside vim\\n"
+    printf "\\t-h\\tDisplay this help\\n"
+}
+
+ while getopts ":d:f:thn:" o; do
+     case "${o}" in
+       d)
+            root_folder=$OPTARG
+            ;;
+       f)
+            main_file=$OPTARG
+            ;;
+       n)
+           session_name=$OPTARG
+           ;;
+       t)
+             fl_test="test"
+            ;;
+         *)
+             info && exit
+             ;;
+     esac
+ done
+
+
+
+cd "$root_folder" || exit
+tmux new -s "$session_name" -d "vim $main_file"
+tmux split-window -h -p 1 'htop'
+tmux split-window -v -p 99
+tmux split-window -v
+
+if [ -n "$fl_test" ]; then
+    tmux new-window -t "$session_name":1 -n "$fl_test";
+fi
+tmux select-window -t "$session_name":0
+tmux select-pane -t 0
+tmux attach -t "$session_name"
+
