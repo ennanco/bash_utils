@@ -1,0 +1,1 @@
+upower --dump | grep keyboard -A 7 |awk '/percentage/ {print $2}'
