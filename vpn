@@ -1,0 +1,51 @@
+#!/bin/sh
+#This script requires the ussage of the libsecret-tool and openconnect in order to
+#operate with the keychain of the system to retrieve the following properties:
+#
+#  * USER the user of the vpn
+#  * PW the password to connect to the service
+#  * VPN the URL or IP chich provides the access
+#
+# Note: It is possible is possible that you require to ajust the protocol to be 
+#       used in the connection, in my case the pulse is required
+
+
+PIDFILE=/tmp/openconnect.vpn
+
+# Start the VPN
+up() {
+         echo "Starting VPN Connection"
+	 USER=$(secret-tool lookup UDC USER)
+	 SERVER=$(secret-tool lookup UDC VPN)
+	 secret-tool lookup UDC PW | sudo openconnect -b --pid-file=$PIDFILE --protocol=pulse -u $USER --passwd-on-stdin $SERVER
+	 echo "Connection to $SERVER succesfully!!"
+}
+
+# Stop the VPN
+down() {
+    echo  "Stopping VPN connection:"
+    sudo kill -9 $(cat $PIDFILE)
+    sudo rm $PIDFILE
+}
+
+### main logic ###
+case "$1" in
+  up|start)
+        up
+        ;;
+  down|stop)
+        down
+        ;;
+  restart|reload)
+        down
+	up
+        ;;
+  *)
+        echo "Usage: $0 {up|down|reload}"
+        exit 1
+esac
+
+exit 0
+
+
+

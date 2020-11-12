@@ -7,4 +7,4 @@ Bash scripts that help to performed some tasks on the system
 4. **compiler**, adapted version from *Luke Smith's* repository
 5. **extract**, same as **compiler**
 6. **k2_battery**, this script is used to get the battery life of a bluetooth keyboard (keychron K2)
-
+7. **vpn**, this script allows to open and close a connection to a VPN in combination with secret-tool and openconnect
