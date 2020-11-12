@@ -24,7 +24,7 @@ up() {
 # Stop the VPN
 down() {
     echo  "Stopping VPN connection:"
-    sudo kill -9 $(cat $PIDFILE)
+    sudo kill -2 $(cat $PIDFILE)
     sudo rm $PIDFILE
 }
 
