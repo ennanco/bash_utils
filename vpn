@@ -6,7 +6,7 @@
 #  * PW the password to connect to the service
 #  * VPN the URL or IP chich provides the access
 #
-# Note: It is possible is possible that you require to ajust the protocol to be 
+# Note: It is possible is possible that you require to ajust the protocol to be
 #       used in the connection, in my case the pulse is required
 
 
@@ -17,7 +17,7 @@ up() {
          echo "Starting VPN Connection"
 	 USER=$(secret-tool lookup UDC USER)
 	 SERVER=$(secret-tool lookup UDC VPN)
-	 secret-tool lookup UDC PW | sudo openconnect -b --pid-file=$PIDFILE --protocol=pulse -u $USER --passwd-on-stdin $SERVER
+	 secret-tool lookup UDC PW | sudo openconnect -q -b --pid-file=$PIDFILE --protocol=pulse -u $USER --passwd-on-stdin $SERVER
 	 echo "Connection to $SERVER succesfully!!"
 }
 
