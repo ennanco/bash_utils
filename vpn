@@ -28,18 +28,21 @@ down() {
     sudo rm $PIDFILE
 }
 
-### main logic ###
+#main code
 case "$1" in
-  up|start)
+  up|start|open)
         up
         ;;
-  down|stop)
+  down|stop|close)
         down
         ;;
   restart|reload)
         down
 	up
         ;;
+  status)
+	[-f "$PIDFILE"] && echo "VPN is up" || echo "VPN is down"
+
   *)
         echo "Usage: $0 {up|down|reload}"
         exit 1
