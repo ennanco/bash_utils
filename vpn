@@ -41,8 +41,8 @@ case "$1" in
 	up
         ;;
   status)
-	[-f "$PIDFILE"] && echo "VPN is up" || echo "VPN is down"
-
+	test -f $PIDFILE && echo "Connected to VPN" || echo "Disconnected from VPN"
+	;;
   *)
         echo "Usage: $0 {up|down|reload}"
         exit 1
