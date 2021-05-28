@@ -23,7 +23,9 @@ up() {
 
 # Stop the VPN
 down() {
-    echo  "Stopping VPN connection:"
+    [ ! -f "$PIDFILE" ] && echo "You are not Connected to the VPN" && exit 1
+    SERVICE=$(secret-tool lookup UDC VPN)
+    echo  "Stopping VPN connection: $SERVER"
     sudo kill -2 $(cat $PIDFILE)
     sudo rm $PIDFILE
 }
