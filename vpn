@@ -1,16 +1,30 @@
 #!/bin/sh
-# Manage an OpenConnect VPN using credentials stored in secret-tool.
+# Manage VPN connections via OpenConnect using credentials stored in secret-tool.
+#
+# Expected secret keys under SECRET_ATTR (default: UDC):
+#   USER -> VPN username
+#   PW   -> VPN password
+#   VPN  -> VPN server/portal URL
+#
+# For GlobalProtect, set protocol to "gp" (default below).
 
 set -eu
 
 PIDFILE="${PIDFILE:-/tmp/openconnect.vpn.pid}"
 SECRET_ATTR="${SECRET_ATTR:-UDC}"
+OPENCONNECT_PROTOCOL="${OPENCONNECT_PROTOCOL:-gp}"
 
 require_cmd() {
     command -v "$1" >/dev/null 2>&1 || {
         printf 'Missing required command: %s\n' "$1" >&2
         exit 1
     }
+}
+
+supports_protocol() {
+    protocol="$1"
+    # openconnect -h output differs by version; match whole token where possible.
+    openconnect --help 2>&1 | grep -Eq "(^|[[:space:],])${protocol}([[:space:],]|$)"
 }
 
 get_secret() {
@@ -25,7 +39,7 @@ get_secret() {
 
 status() {
     if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
-        printf 'Connected to VPN (pid: %s).\n' "$(cat "$PIDFILE")"
+        printf 'Connected to VPN (pid: %s, protocol: %s).\n' "$(cat "$PIDFILE")" "$OPENCONNECT_PROTOCOL"
     else
         printf 'Disconnected from VPN.\n'
     fi
@@ -36,6 +50,12 @@ up() {
     require_cmd sudo
     require_cmd openconnect
 
+    if ! supports_protocol "$OPENCONNECT_PROTOCOL"; then
+        printf 'OpenConnect does not report support for protocol "%s".\n' "$OPENCONNECT_PROTOCOL" >&2
+        printf 'Try another protocol by setting OPENCONNECT_PROTOCOL (e.g. pulse, gp).\n' >&2
+        exit 1
+    fi
+
     if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
         printf 'VPN already running (pid: %s).\n' "$(cat "$PIDFILE")"
         return 0
@@ -44,8 +64,8 @@ up() {
     user=$(get_secret USER)
     server=$(get_secret VPN)
 
-    printf 'Starting VPN connection to %s...\n' "$server"
-    get_secret PW | sudo openconnect -q -b --pid-file="$PIDFILE" --protocol=pulse \
+    printf 'Starting VPN connection to %s using protocol %s...\n' "$server" "$OPENCONNECT_PROTOCOL"
+    get_secret PW | sudo openconnect -q -b --pid-file="$PIDFILE" --protocol="$OPENCONNECT_PROTOCOL" \
         -u "$user" --passwd-on-stdin "$server"
 
     if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
@@ -77,6 +97,10 @@ down() {
 
 usage() {
     printf 'Usage: %s {up|down|restart|status}\n' "$0"
+    printf 'Environment overrides:\n'
+    printf '  SECRET_ATTR=UDC            Secret attribute/group used by secret-tool\n'
+    printf '  OPENCONNECT_PROTOCOL=gp    OpenConnect protocol (gp for GlobalProtect)\n'
+    printf '  PIDFILE=/tmp/openconnect.vpn.pid\n'
 }
 
 case "${1:-}" in
@@ -87,6 +111,9 @@ restart|reload)
     up
     ;;
 status) status ;;
+help|-h|--help)
+    usage
+    ;;
 *)
     usage
     exit 1
