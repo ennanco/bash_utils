@@ -1,56 +1,94 @@
 #!/bin/sh
-#This script requires the ussage of the libsecret-tool and openconnect in order to
-#operate with the keychain of the system to retrieve the following properties:
-#
-#  * USER the user of the vpn
-#  * PW the password to connect to the service
-#  * VPN the URL or IP chich provides the access
-#
-# Note: It is possible is possible that you require to ajust the protocol to be
-#       used in the connection, in my case the pulse is required
+# Manage an OpenConnect VPN using credentials stored in secret-tool.
 
+set -eu
 
-PIDFILE=/tmp/openconnect.vpn
+PIDFILE="${PIDFILE:-/tmp/openconnect.vpn.pid}"
+SECRET_ATTR="${SECRET_ATTR:-UDC}"
 
-# Start the VPN
-up() {
-         echo "Starting VPN Connection"
-	 USER=$(secret-tool lookup UDC USER)
-	 SERVER=$(secret-tool lookup UDC VPN)
-	 secret-tool lookup UDC PW | sudo openconnect -q -b --pid-file=$PIDFILE --protocol=pulse -u $USER --passwd-on-stdin $SERVER
-	 echo "Connection to $SERVER succesfully!!"
-}
-
-# Stop the VPN
-down() {
-    [ ! -f "$PIDFILE" ] && echo "You are not Connected to the VPN" && exit 1
-    SERVICE=$(secret-tool lookup UDC VPN)
-    echo  "Stopping VPN connection: $SERVICE"
-    sudo kill -2 $(cat $PIDFILE)
-    sudo rm $PIDFILE
-}
-
-#main code
-case "$1" in
-  up|start|open)
-        up
-        ;;
-  down|stop|close)
-        down
-        ;;
-  restart|reload)
-        down
-	up
-        ;;
-  status)
-	test -f $PIDFILE && echo "Connected to VPN" || echo "Disconnected from VPN"
-	;;
-  *)
-        echo "Usage: $0 {up|down|reload}"
+require_cmd() {
+    command -v "$1" >/dev/null 2>&1 || {
+        printf 'Missing required command: %s\n' "$1" >&2
         exit 1
+    }
+}
+
+get_secret() {
+    key="$1"
+    value=$(secret-tool lookup "$SECRET_ATTR" "$key" || true)
+    [ -n "$value" ] || {
+        printf 'Secret not found for key "%s" and attribute "%s".\n' "$key" "$SECRET_ATTR" >&2
+        exit 1
+    }
+    printf '%s' "$value"
+}
+
+status() {
+    if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+        printf 'Connected to VPN (pid: %s).\n' "$(cat "$PIDFILE")"
+    else
+        printf 'Disconnected from VPN.\n'
+    fi
+}
+
+up() {
+    require_cmd secret-tool
+    require_cmd sudo
+    require_cmd openconnect
+
+    if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+        printf 'VPN already running (pid: %s).\n' "$(cat "$PIDFILE")"
+        return 0
+    fi
+
+    user=$(get_secret USER)
+    server=$(get_secret VPN)
+
+    printf 'Starting VPN connection to %s...\n' "$server"
+    get_secret PW | sudo openconnect -q -b --pid-file="$PIDFILE" --protocol=pulse \
+        -u "$user" --passwd-on-stdin "$server"
+
+    if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+        printf 'VPN connected to %s.\n' "$server"
+    else
+        printf 'VPN did not start successfully.\n' >&2
+        exit 1
+    fi
+}
+
+down() {
+    require_cmd sudo
+
+    [ -f "$PIDFILE" ] || {
+        printf 'You are not connected to the VPN.\n'
+        return 1
+    }
+
+    pid=$(cat "$PIDFILE")
+    if kill -0 "$pid" 2>/dev/null; then
+        printf 'Stopping VPN connection (pid: %s)...\n' "$pid"
+        sudo kill -2 "$pid"
+    else
+        printf 'Stale PID file found. Cleaning it up.\n'
+    fi
+
+    rm -f "$PIDFILE"
+}
+
+usage() {
+    printf 'Usage: %s {up|down|restart|status}\n' "$0"
+}
+
+case "${1:-}" in
+up|start|open) up ;;
+down|stop|close) down ;;
+restart|reload)
+    down || true
+    up
+    ;;
+status) status ;;
+*)
+    usage
+    exit 1
+    ;;
 esac
-
-exit 0
-
-
-
