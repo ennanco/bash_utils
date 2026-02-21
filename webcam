@@ -1,9 +1,23 @@
-#! /bin/bash
-# This script has as objective to display the webcam on the desktop on an small window
-# at the bottom-right corner. It works together with the screencasting to produce educative
-# videos.
-# it would also closes the webcam, if it is call a second time. Threfore is quite convinient to
-# associate a shortcut on the keyboard.
+#!/usr/bin/env bash
+# Toggle a small always-on-top webcam preview in the bottom-right corner.
 
+set -euo pipefail
 
-pkill -f "/dev/video" || mpv --geometry=-0-0 --autofit=20% --no-border --ontop  /dev/video0
+VIDEO_DEVICE="${VIDEO_DEVICE:-/dev/video0}"
+
+if pgrep -f "mpv.*${VIDEO_DEVICE}" >/dev/null 2>&1; then
+    pkill -f "mpv.*${VIDEO_DEVICE}"
+    exit 0
+fi
+
+command -v mpv >/dev/null 2>&1 || {
+    echo "mpv is required but was not found in PATH." >&2
+    exit 1
+}
+
+[[ -e "$VIDEO_DEVICE" ]] || {
+    echo "Video device not found: $VIDEO_DEVICE" >&2
+    exit 1
+}
+
+exec mpv --geometry=-0-0 --autofit=20% --no-border --ontop "$VIDEO_DEVICE"

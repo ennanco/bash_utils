@@ -7,4 +7,4 @@ This is my little Chaos, some times you need to perform a particular task once a
 4. **compiler**, adapted version from *Luke Smith's* repository, it allows to give main commons format and compile them with the default options.
 5. **extract**, same as **compiler**, it help to extract any comprossed file from main types while it deploys the result on a folder with the same name as the compressed file
 6. **k2_battery**, this script is used to get the battery life of a bluetooth keyboard (keychron K2)
-7. **vpn**, this script allows to open and close a connection to a VPN in combination with secret-tool and openconnect
+7. **vpn**, this script allows opening/closing a VPN connection using `secret-tool` + `openconnect` (configured for GlobalProtect by default)

@@ -1,40 +1,79 @@
-#! /bin/bash
-# This sctipt has as main objective to record the screen and produce a video with audio from microphone
+#!/usr/bin/env bash
+# Record desktop (or webcam) with microphone audio using ffmpeg.
 
-screen_size=$(xdpyinfo | grep dimensions | awk '{print $2}')
-video_source="-f x11grab -s $screen_size -i :0.0"
-video_encoder="-c:v libx264 -r 30"
-audio_source="-f alsa -ac 2 -i default"
-audio_encoder="-c:a aac -b:a 128k"
+set -euo pipefail
+
+PIDFILE="${PIDFILE:-/tmp/screencasting.pid}"
+video_source=( )
+video_encoder=( -c:v libx264 -r 30 )
+audio_source=( -f alsa -ac 2 -i default )
+audio_encoder=( -c:a aac -b:a 128k )
 output_name="$HOME/output_$(date +%Y%m%d%H%M%S).mkv"
+webcam_only=false
 
-info(){
-    printf "Usage: $0 [-p] [-w] [-o FILE] [-s] [-h]\\n";
-    printf "\\t-p\\tUse pulse audio\\n"
-    printf "\\t-w\\tRecord webcam only\\n"
-    printf "\\t-o\\tName and extension of the output FILE\\n"
-    printf "\\t-s\\tStop recording\\n"
-    printf "\\t-h\\tDisplay this help\\n"
+info() {
+    printf 'Usage: %s [-p] [-w] [-o FILE] [-s] [-h]\n' "$0"
+    printf '\t-p\tUse PulseAudio input instead of ALSA\n'
+    printf '\t-w\tRecord webcam only (/dev/video0)\n'
+    printf '\t-o\tSet output file path\n'
+    printf '\t-s\tStop active recording\n'
+    printf '\t-h\tDisplay this help\n'
 }
 
-while getopts "pwo:sh" o; do
-    case "${o}" in
-        p)
-            audio_source="-f pulse -ac 2 -i default"
-            ;;
-        w)
-           video_source="-i /dev/video0"
-            ;;
-        o)
-            output_name=$OPTARG
-            ;;
+stop_recording() {
+    if [[ -f "$PIDFILE" ]] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+        kill "$(cat "$PIDFILE")"
+        rm -f "$PIDFILE"
+        echo 'Recording stopped.'
+    else
+        echo 'No active recording found.' >&2
+        return 1
+    fi
+}
+
+while getopts 'pwo:sh' o; do
+    case "$o" in
+        p) audio_source=( -f pulse -ac 2 -i default ) ;;
+        w) webcam_only=true ;;
+        o) output_name=$OPTARG ;;
         s)
-            pkill -f "ffmpeg"&&exit
+            stop_recording
+            exit 0
+            ;;
+        h)
+            info
+            exit 0
             ;;
         *)
-            info && exit
+            info
+            exit 1
             ;;
     esac
 done
 
-ffmpeg -y -nostdin $video_source $audio_source $video_encoder $audio_encoder $output_name >/dev/null 2>&1 & 
+command -v ffmpeg >/dev/null 2>&1 || {
+    echo 'ffmpeg is required but was not found in PATH.' >&2
+    exit 1
+}
+
+if $webcam_only; then
+    video_source=( -i /dev/video0 )
+else
+    command -v xdpyinfo >/dev/null 2>&1 || {
+        echo 'xdpyinfo is required to capture desktop size.' >&2
+        exit 1
+    }
+    screen_size=$(xdpyinfo | awk '/dimensions/{print $2; exit}')
+    video_source=( -f x11grab -s "$screen_size" -i :0.0 )
+fi
+
+if [[ -f "$PIDFILE" ]] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+    echo 'A recording session is already running. Use -s to stop it.' >&2
+    exit 1
+fi
+
+ffmpeg -y -nostdin "${video_source[@]}" "${audio_source[@]}" \
+    "${video_encoder[@]}" "${audio_encoder[@]}" "$output_name" >/dev/null 2>&1 &
+
+echo "$!" > "$PIDFILE"
+echo "Recording started: $output_name"
