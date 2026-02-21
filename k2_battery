@@ -1,1 +1,18 @@
-upower --dump | grep keyboard -A 7 |awk '/percentage/ {print $2}'
+#!/usr/bin/env bash
+# Print battery percentage for a connected Keychron K2 keyboard.
+
+set -euo pipefail
+
+command -v upower >/dev/null 2>&1 || {
+    echo 'upower is required but was not found in PATH.' >&2
+    exit 1
+}
+
+device=$(upower -e | grep -Ei 'keyboard|keychron' | head -n 1 || true)
+
+if [[ -z "$device" ]]; then
+    echo 'No keyboard battery device found via upower.' >&2
+    exit 1
+fi
+
+upower -i "$device" | awk -F': *' '/percentage/ {print $2; found=1} END {if (!found) exit 1}'

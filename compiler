@@ -1,33 +1,53 @@
 #!/bin/sh
-# This script will compile or run another finishing operation on a document. I
-# have this script run via vim.
-#
-# Compiles .tex. groff (.mom, .ms), .rmd, .md.
-# Opens .sent files as sent presentations.
-# Runs scripts based on extention or shebang
+# Compile or execute a file based on extension or shebang.
+
+set -eu
+
+[ "$#" -eq 1 ] || {
+    printf 'Usage: %s <file>\n' "$0" >&2
+    exit 1
+}
 
 file=$(readlink -f "$1")
+[ -f "$file" ] || {
+    printf 'File not found: %s\n' "$1" >&2
+    exit 1
+}
+
 dir=$(dirname "$file")
 base="${file%.*}"
 
-cd "$dir" || exit
+cd "$dir"
 
-textype() { \
-	command="pdflatex"
-	( sed 5q "$file" | grep -i -q 'xelatex' ) && command="xelatex"
-	$command --output-directory="$dir" "$base" &&
-	grep -i addbibresource "$file" >/dev/null &&
-	biber --input-directory "$dir" "$base" &&
-	$command --output-directory="$dir" "$base" &&
-	$command --output-directory="$dir" "$base"
-	}
+textype() {
+    command_name='pdflatex'
+    if sed -n '1,5p' "$file" | grep -iq 'xelatex'; then
+        command_name='xelatex'
+    fi
+
+    "$command_name" --output-directory="$dir" "$file"
+
+    if grep -iq 'addbibresource' "$file"; then
+        biber --input-directory "$dir" "$base"
+        "$command_name" --output-directory="$dir" "$file"
+    fi
+
+    "$command_name" --output-directory="$dir" "$file"
+}
 
 case "$file" in
-	*\.ms) refer -PS -e "$file" | groff -me -ms -kejpt -T pdf > "$base".pdf ;;
-	*\.mom) refer -PS -e "$file" | groff -mom -kejpt -T pdf > "$base".pdf ;;
-	*\.tex) textype "$file" ;;
-	*\.md) pandoc "$file" --pdf-engine=xelatex -o "$base".pdf ;;
-        *\.c) gcc "$file" -o "$base" && "$base" ;;
-	*\.py) python3 "$file" ;;
-	*) sed 1q "$file" | grep "^#!/" | sed "s/^#!//" | xargs -r -I % "$file" ;;
+    *.ms) refer -PS -e "$file" | groff -me -ms -kejpt -T pdf > "$base".pdf ;;
+    *.mom) refer -PS -e "$file" | groff -mom -kejpt -T pdf > "$base".pdf ;;
+    *.tex) textype ;;
+    *.md) pandoc "$file" --pdf-engine=xelatex -o "$base".pdf ;;
+    *.c) gcc "$file" -o "$base" && "$base" ;;
+    *.py) python3 "$file" ;;
+    *)
+        if sed -n '1s/^#!//p' "$file" | grep -q .; then
+            "$file"
+        else
+            printf 'No build rule for file: %s\n' "$file" >&2
+            exit 1
+        fi
+        ;;
 esac
